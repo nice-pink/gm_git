@@ -1,12 +1,11 @@
 package git
 
 import (
-	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
@@ -14,6 +13,7 @@ import (
 var UserName string = "bear-builder"
 var UserEmail string = "builder@radiosphere.com"
 
+// Pull repo
 func PullLocalRepo(path string) error {
 	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
 	if err != nil {
@@ -33,7 +33,7 @@ func PullLocalRepo(path string) error {
 	}
 
 	err = workDir.Pull(&git.PullOptions{
-		// RemoteName: 	"origin",
+		RemoteName:   "origin",
 		SingleBranch: true,
 		Depth:        1,
 		Auth:         auth,
@@ -47,7 +47,8 @@ func PullLocalRepo(path string) error {
 	return err
 }
 
-func CommitPushLocalRepo(path string, message string, pull bool, retries int) error {
+// Pull, commit and push repo.
+func CommitPushLocalRepo(path string, message string, pull bool) error {
 	// Open key file for auth
 	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
 	if err != nil {
@@ -66,6 +67,23 @@ func CommitPushLocalRepo(path string, message string, pull bool, retries int) er
 	if err != nil {
 		fmt.Println(err)
 		return err
+	}
+
+	// Pull remote
+	if pull {
+		err = workDir.Pull(&git.PullOptions{
+			RemoteName:   "origin",
+			SingleBranch: true,
+			Depth:        1,
+			Auth:         auth,
+			Force:        true,
+		})
+		if err == git.NoErrAlreadyUpToDate {
+			// do nothing
+		} else if err != nil {
+			fmt.Println("could not pull.")
+			fmt.Println(err)
+		}
 	}
 
 	// Get status
@@ -102,73 +120,100 @@ func CommitPushLocalRepo(path string, message string, pull bool, retries int) er
 	}
 	fmt.Println(obj)
 
-	// Pull push with retries.
-	for index := 1; index <= retries+1; index++ {
-		fmt.Println(strconv.Itoa(index) + " try to push to repo.")
-		if pull {
-			err = workDir.Pull(&git.PullOptions{
-				// RemoteName: 	"origin",
-				SingleBranch: true,
-				Depth:        1,
-				Auth:         auth,
-				Force:        true,
-			})
-			if err == git.NoErrAlreadyUpToDate {
-				// do nothing
-			} else if err != nil {
-				fmt.Println("could not pull.")
-				fmt.Println(err)
-			}
-		}
-
-		// Push
-		err = repo.Push(&git.PushOptions{
-			RemoteName: "origin",
-			Auth:       auth,
-		})
-		if err != nil {
-			fmt.Println(err)
-			fmt.Println("could not push.")
-			continue
-		}
-
-		// Success!
-		fmt.Println("Success!")
-		return nil
+	// Push
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth:       auth,
+	})
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("could not push.")
+		return err
 	}
-	fmt.Println("Failed!")
 
-	return errors.New("Failed to push to git")
+	// Success!
+	fmt.Println("Success!")
+	return nil
 }
 
-func CheckoutCommit(url string, commit string, destPath string, recursive bool) {
+// Reset local repo to origin/main HEAD and clean unstaged files.
+func ResetToRemoteHead(path string) error {
 	// Open key file for auth
-	// auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
-	// if err != nil {
-	// 	panic(err)
-	// }
+	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
+	if err != nil {
+		panic(err)
+	}
 
-	// repo, err := git.PlainClone(destPath, false, &git.CloneOptions{
-	// 	URL:      url,
-	// 	Progress: os.Stdout,
-	// 	Auth:     auth,
-	// })
-	// if err != nil {
-	// 	panic(err)
-	// }
+	// Open folder as git repo
+	repo, err := git.PlainOpen(path)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 
-	// get workdir
-	// workDir, err := repo.Worktree()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	// Get worktree
+	workDir, err := repo.Worktree()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 
-	// // checkout commit
-	// err = workDir.Checkout(&git.CheckoutOptions{
-	// 	Hash:  plumbing.NewHash(commit),
-	// 	Depth: 1,
-	// })
-	// if err != nil {
-	// 	panic(err)
-	// }
+	// Fetch remote
+	err = repo.Fetch(&git.FetchOptions{
+		RemoteName: "origin",
+		Auth:       auth,
+	})
+
+	// Get remote head
+	remoteRef, err := repo.Reference(plumbing.Main, true)
+	if err != nil {
+		fmt.Print("Could not get remote head.")
+		return err
+	}
+
+	// Reset
+	err = workDir.Reset(&git.ResetOptions{
+		Mode:   git.HardReset,
+		Commit: remoteRef.Hash(),
+	})
+
+	// Clean git repo
+	err = workDir.Clean(&git.CleanOptions{})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return nil
 }
+
+// func CheckoutCommit(url string, commit string, destPath string, recursive bool) {
+// 	// Open key file for auth
+// 	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	repo, err := git.PlainClone(destPath, false, &git.CloneOptions{
+// 		URL:      url,
+// 		Progress: os.Stdout,
+// 		Auth:     auth,
+// 	})
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	// get workdir
+// 	workDir, err := repo.Worktree()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	// checkout commit
+// 	err = workDir.Checkout(&git.CheckoutOptions{
+// 		Hash:  plumbing.NewHash(commit),
+// 		Depth: 1,
+// 	})
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// }
