@@ -12,15 +12,17 @@ import (
 
 var UserName string = ""
 var UserEmail string = ""
+var SshKeyPath string = ""
 
-func Setup(user string, email string) {
+func Setup(user string, email string, keypath string) {
 	UserName = user
 	UserEmail = email
+	SshKeyPath = keypath
 }
 
 // Pull repo
 func PullLocalRepo(path string) error {
-	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
+	auth, err := ssh.NewPublicKeysFromFile("git", SshKeyPath, "")
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +57,7 @@ func PullLocalRepo(path string) error {
 // Pull, commit and push repo.
 func CommitPushLocalRepo(path string, message string, pull bool) error {
 	// Open key file for auth
-	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
+	auth, err := ssh.NewPublicKeysFromFile("git", SshKeyPath, "")
 	if err != nil {
 		panic(err)
 	}
@@ -144,7 +146,7 @@ func CommitPushLocalRepo(path string, message string, pull bool) error {
 // Reset local repo to origin/main HEAD and clean unstaged files.
 func ResetToRemoteHead(path string) error {
 	// Open key file for auth
-	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
+	auth, err := ssh.NewPublicKeysFromFile("git", SshKeyPath, "")
 	if err != nil {
 		panic(err)
 	}
@@ -193,7 +195,7 @@ func ResetToRemoteHead(path string) error {
 
 // func CheckoutCommit(url string, commit string, destPath string, recursive bool) {
 // 	// Open key file for auth
-// 	auth, err := ssh.NewPublicKeysFromFile("git", "/home/git/.ssh/id_rsa", "")
+// 	auth, err := ssh.NewPublicKeysFromFile("git", SshKeyPath, "")
 // 	if err != nil {
 // 		panic(err)
 // 	}
