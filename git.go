@@ -10,8 +10,13 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
-var UserName string = "bear-builder"
-var UserEmail string = "builder@radiosphere.com"
+var UserName string = ""
+var UserEmail string = ""
+
+func Setup(user string, email string) {
+	UserName = user
+	UserEmail = email
+}
 
 // Pull repo
 func PullLocalRepo(path string) error {
