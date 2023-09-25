@@ -55,7 +55,7 @@ func PullLocalRepo(path string) error {
 }
 
 // Pull, commit and push repo.
-func CommitPushLocalRepo(path string, message string, pull bool, remoteName string) error {
+func CommitPushLocalRepo(path string, message string, pull bool) error {
 	// Open key file for auth
 	auth, err := ssh.NewPublicKeysFromFile("git", SshKeyPath, "")
 	if err != nil {
@@ -79,7 +79,7 @@ func CommitPushLocalRepo(path string, message string, pull bool, remoteName stri
 	// Pull remote
 	if pull {
 		err = workDir.Pull(&git.PullOptions{
-			RemoteName:   remoteName,
+			// RemoteName:   "origin",
 			SingleBranch: true,
 			Depth:        1,
 			Auth:         auth,
@@ -129,8 +129,8 @@ func CommitPushLocalRepo(path string, message string, pull bool, remoteName stri
 
 	// Push
 	err = repo.Push(&git.PushOptions{
-		RemoteName: remoteName,
-		Auth:       auth,
+		// RemoteName: "origin",
+		Auth: auth,
 	})
 	if err != nil {
 		fmt.Println(err)
